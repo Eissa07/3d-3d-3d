@@ -2,39 +2,709 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
-    <title>ZEROONE_KERNEL::CLOUD_AI_VAULT</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>ZeroOne Cloud Studio</title>
     
-    <!-- Fonts -->
+    <!-- الخطوط -->
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     
-    <!-- Three.js Core -->
+    <!-- Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
     
-    <!-- Transformers.js - ذكاء اصطناعي محلي مجاني -->
-    <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js"></script>
+    <!-- GSAP للحركات -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     
-    <!-- AWS SDK for Cloudflare R2 (S3 Compatible) -->
+    <!-- AWS SDK للسحابة -->
     <script src="https://cdn.jsdelivr.net/npm/@aws-sdk/client-s3@3.637.0/dist/aws-sdk-client-s3.min.js"></script>
     
     <style>
-        /* ==================== ZEROONE_KERNEL::STYLES ==================== */
-        :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #0f172a;
-            --bg-tertiary: #1e293b;
-            --accent-primary: #00ffcc;
-            --accent-secondary: #ffaa00;
-            --accent-danger: #ff5555;
-            --accent-ai: #9945ff;
-            --text-primary: #e0e0e0;
-            --text-dim: #64748b;
-            --font-mono: 'Courier New', 'Fira Code', monospace;
-            --font-arabic: 'Cairo', sans-serif;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: #0a0a0f;
+            color: white;
+            overflow: hidden;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100dvh;
+        }
+        .header {
+            background: #0f172a;
+            border-bottom: 2px solid #00ffcc;
+            padding: 10px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            color: #00ffcc;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        .cloud-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #1e293b;
+            padding: 6px 12px;
+            border-radius: 20px;
+        }
+        .cloud-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ff5555;
+        }
+        .cloud-dot.online {
+            background: #00ffcc;
+            box-shadow: 0 0 10px #00ffcc;
+        }
+        .toolbar {
+            background: #0f172a;
+            padding: 8px 12px;
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            border-bottom: 1px solid #1e293b;
+        }
+        .tool-group {
+            display: flex;
+            gap: 2px;
+            background: #1e293b;
+            padding: 4px;
+            border-radius: 6px;
+        }
+        .btn {
+            background: transparent;
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn:hover { background: #00ffcc; color: #0f172a; }
+        .btn-cloud { background: #00ffcc20; color: #00ffcc; border: 1px solid #00ffcc55; }
+        .btn-cloud:hover { background: #00ffcc; color: #0f172a; }
+        
+        #viewport { flex: 1; background: #050510; }
+        
+        .status-bar {
+            background: #0a0a0f;
+            border-top: 1px solid #1e293b;
+            padding: 6px 16px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: #888;
         }
         
-        * {
+        .mobile-panel {
+            background: #0f172ae0;
+            backdrop-filter: blur(10px);
+            border-top: 2px solid #00ffcc;
+            padding: 12px 8px;
+            display: none;
+        }
+        
+        .gizmo-row {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .gizmo-btn {
+            width: 55px;
+            height: 55px;
+            border-radius: 12px;
+            background: #1e293b;
+            border: 2px solid #334155;
+            color: white;
+            font-size: 22px;
+            cursor: pointer;
+        }
+        
+        .gizmo-btn:active {
+            background: #00ffcc;
+            color: #0f172a;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 200px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #00ffcc;
+            color: #0f172a;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: bold;
+            z-index: 10000;
+            animation: slideUp 0.3s;
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        
+        @media (max-width: 768px) {
+            .mobile-panel { display: block; }
+            .toolbar { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- الهيدر -->
+        <div class="header">
+            <div class="logo">☁️ ZeroOne Cloud Studio</div>
+            <div class="cloud-status">
+                <span id="cloudStatusText">غير متصل</span>
+                <span class="cloud-dot" id="cloudDot"></span>
+            </div>
+        </div>
+        
+        <!-- شريط الأدوات -->
+        <div class="toolbar">
+            <div class="tool-group">
+                <button class="btn" id="addCubeBtn">➕ مكعب</button>
+                <button class="btn" id="addSphereBtn">⚪ كرة</button>
+            </div>
+            <div class="tool-group">
+                <button class="btn" data-mode="translate">📦 تحريك</button>
+                <button class="btn" data-mode="rotate">🔄 تدوير</button>
+                <button class="btn" data-mode="scale">📏 حجم</button>
+            </div>
+            <div class="tool-group">
+                <button class="btn" id="deleteBtn">🗑️ حذف</button>
+                <button class="btn" id="duplicateBtn">📋 نسخ</button>
+                <button class="btn" id="focusBtn">🔍 تركيز</button>
+            </div>
+            <div class="tool-group">
+                <button class="btn btn-cloud" id="uploadCloudBtn">☁️⬆️ رفع للسحابة</button>
+                <button class="btn btn-cloud" id="downloadCloudBtn">☁️⬇️ تحميل</button>
+                <button class="btn btn-cloud" id="listCloudBtn">📋 ملفاتي</button>
+            </div>
+        </div>
+        
+        <!-- منطقة 3D -->
+        <div id="viewport"></div>
+        
+        <!-- شريط الحالة -->
+        <div class="status-bar">
+            <span>📌 المحدد: <span id="selectedName">لا يوجد</span></span>
+            <span>📊 الكائنات: <span id="objectCount">0</span></span>
+            <span>☁️ ملفات: <span id="cloudFileCount">0</span></span>
+        </div>
+        
+        <!-- لوحة الموبايل -->
+        <div class="mobile-panel">
+            <div class="gizmo-row">
+                <button class="gizmo-btn" id="mobileAddCube">➕</button>
+                <button class="gizmo-btn" id="mobileUpload">☁️⬆️</button>
+                <button class="gizmo-btn" id="mobileDownload">☁️⬇️</button>
+                <button class="gizmo-btn" id="mobileDelete">🗑️</button>
+            </div>
+            <div class="gizmo-row">
+                <button class="gizmo-btn" data-mode="translate">📦</button>
+                <button class="gizmo-btn" data-mode="rotate">🔄</button>
+                <button class="gizmo-btn" data-mode="scale">📏</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- نافذة اختيار ملف مخفية -->
+    <input type="file" id="fileInput" style="display: none;">
+    
+    <script>
+        // ==================== 1. إعدادات Cloudflare (غير البيانات دي بس) ====================
+        const CLOUD_CONFIG = {
+            // ⚠️ غير الأربعة دول فقط ⚠️
+            ACCOUNT_ID: 'ضع_رقم_الحساب_هنا',
+            ACCESS_KEY_ID: 'ضع_Access_Key_ID_هنا',
+            SECRET_ACCESS_KEY: 'ضع_Secret_Access_Key_هنا',
+            BUCKET_NAME: 'zeroone-vault',
+            ENDPOINT: 'https://ضع_رقم_الحساب_هنا.r2.cloudflarestorage.com'
+        };
+        
+        // ==================== 2. المتغيرات العامة ====================
+        let scene, camera, renderer, orbitControls, transformControls;
+        let objects = [];
+        let selectedObject = null;
+        let currentMode = 'translate';
+        let cloudStorage = null;
+        
+        // ==================== 3. دالة عرض الرسائل ====================
+        function showToast(msg, isError = false) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = msg;
+            toast.style.background = isError ? '#ff5555' : '#00ffcc';
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
+        
+        // ==================== 4. تحديث حالة السحابة ====================
+        function updateCloudStatus(connected) {
+            const text = document.getElementById('cloudStatusText');
+            const dot = document.getElementById('cloudDot');
+            if (connected) {
+                text.textContent = 'متصل';
+                dot.classList.add('online');
+            } else {
+                text.textContent = 'غير متصل';
+                dot.classList.remove('online');
+            }
+        }
+        
+        // ==================== 5. كلاس التخزين السحابي ====================
+        class CloudStorage {
+            constructor() {
+                this.s3Client = null;
+                this.isConnected = false;
+                this.init();
+            }
+            
+            init() {
+                try {
+                    this.s3Client = new S3Client({
+                        region: 'auto',
+                        endpoint: CLOUD_CONFIG.ENDPOINT,
+                        credentials: {
+                            accessKeyId: CLOUD_CONFIG.ACCESS_KEY_ID,
+                            secretAccessKey: CLOUD_CONFIG.SECRET_ACCESS_KEY
+                        },
+                        forcePathStyle: true
+                    });
+                    this.isConnected = true;
+                    updateCloudStatus(true);
+                    this.updateFileCount();
+                    showToast('✅ متصل بالسحابة');
+                } catch (e) {
+                    this.isConnected = false;
+                    updateCloudStatus(false);
+                    showToast('❌ فشل الاتصال بالسحابة', true);
+                }
+            }
+            
+            async uploadFile(fileName, fileBlob) {
+                if (!this.isConnected) {
+                    showToast('⚠️ السحابة غير متصلة', true);
+                    return false;
+                }
+                
+                try {
+                    const command = new PutObjectCommand({
+                        Bucket: CLOUD_CONFIG.BUCKET_NAME,
+                        Key: fileName,
+                        Body: fileBlob
+                    });
+                    
+                    await this.s3Client.send(command);
+                    showToast(`✅ تم رفع: ${fileName}`);
+                    this.updateFileCount();
+                    return true;
+                } catch (e) {
+                    showToast(`❌ فشل الرفع: ${e.message}`, true);
+                    return false;
+                }
+            }
+            
+            async downloadFile(fileName) {
+                if (!this.isConnected) {
+                    showToast('⚠️ السحابة غير متصلة', true);
+                    return null;
+                }
+                
+                try {
+                    const command = new GetObjectCommand({
+                        Bucket: CLOUD_CONFIG.BUCKET_NAME,
+                        Key: fileName
+                    });
+                    
+                    const response = await this.s3Client.send(command);
+                    const byteArray = await response.Body.transformToByteArray();
+                    return new Blob([byteArray]);
+                } catch (e) {
+                    showToast(`❌ فشل التحميل: ${e.message}`, true);
+                    return null;
+                }
+            }
+            
+            async listFiles() {
+                if (!this.isConnected) return [];
+                
+                try {
+                    const command = new ListObjectsV2Command({
+                        Bucket: CLOUD_CONFIG.BUCKET_NAME
+                    });
+                    
+                    const response = await this.s3Client.send(command);
+                    return response.Contents || [];
+                } catch (e) {
+                    return [];
+                }
+            }
+            
+            async deleteFile(fileName) {
+                if (!this.isConnected) return false;
+                
+                try {
+                    const command = new DeleteObjectCommand({
+                        Bucket: CLOUD_CONFIG.BUCKET_NAME,
+                        Key: fileName
+                    });
+                    
+                    await this.s3Client.send(command);
+                    this.updateFileCount();
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            }
+            
+            async updateFileCount() {
+                const files = await this.listFiles();
+                document.getElementById('cloudFileCount').textContent = files.length;
+            }
+        }
+        
+        // ==================== 6. تهيئة المشهد 3D ====================
+        function initScene() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x050510);
+            
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(5, 5, 10);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.getElementById('viewport').appendChild(renderer.domElement);
+            
+            // إضاءة
+            scene.add(new THREE.AmbientLight(0x404060));
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+            dirLight.position.set(5, 10, 7);
+            scene.add(dirLight);
+            
+            // شبكة
+            scene.add(new THREE.GridHelper(20, 20, 0x00ffcc, 0x1e293b));
+            scene.add(new THREE.AxesHelper(5));
+            
+            // OrbitControls
+            orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+            orbitControls.enableDamping = true;
+            orbitControls.target.set(0, 0.5, 0);
+            
+            // TransformControls
+            transformControls = new THREE.TransformControls(camera, renderer.domElement);
+            transformControls.addEventListener('dragging-changed', (e) => {
+                orbitControls.enabled = !e.value;
+            });
+            scene.add(transformControls);
+            
+            // Raycaster للتحديد
+            renderer.domElement.addEventListener('click', (e) => {
+                const rect = renderer.domElement.getBoundingClientRect();
+                const mouse = new THREE.Vector2();
+                mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+                
+                const raycaster = new THREE.Raycaster();
+                raycaster.setFromCamera(mouse, camera);
+                
+                const meshes = objects.filter(obj => obj.isMesh);
+                const intersects = raycaster.intersectObjects(meshes);
+                
+                if (intersects.length > 0) {
+                    selectObject(intersects[0].object);
+                }
+            });
+            
+            animate();
+        }
+        
+        // ==================== 7. تحديد كائن ====================
+        function selectObject(obj) {
+            if (selectedObject) {
+                if (selectedObject.userData.originalColor) {
+                    selectedObject.material.color.setHex(selectedObject.userData.originalColor);
+                }
+            }
+            
+            selectedObject = obj;
+            obj.userData.originalColor = obj.material.color.getHex();
+            obj.material.color.setHex(0xffaa00);
+            
+            transformControls.attach(obj);
+            transformControls.setMode(currentMode);
+            
+            document.getElementById('selectedName').textContent = obj.userData.name || 'كائن';
+        }
+        
+        // ==================== 8. إضافة مكعب ====================
+        function addCube() {
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+            const material = new THREE.MeshStandardMaterial({ color: 0x00ffcc });
+            const cube = new THREE.Mesh(geometry, material);
+            
+            cube.position.x = (objects.length % 3) * 2 - 2;
+            cube.position.z = Math.floor(objects.length / 3) * 2 - 2;
+            cube.position.y = 0.5;
+            cube.userData.name = `Cube_${objects.length + 1}`;
+            
+            scene.add(cube);
+            objects.push(cube);
+            selectObject(cube);
+            updateObjectCount();
+            
+            showToast('✅ تم إضافة مكعب');
+        }
+        
+        // ==================== 9. إضافة كرة ====================
+        function addSphere() {
+            const geometry = new THREE.SphereGeometry(0.7, 32, 16);
+            const material = new THREE.MeshStandardMaterial({ color: 0xffaa00 });
+            const sphere = new THREE.Mesh(geometry, material);
+            
+            sphere.position.x = (objects.length % 3) * 2 - 2;
+            sphere.position.z = Math.floor(objects.length / 3) * 2 - 2;
+            sphere.position.y = 0.7;
+            sphere.userData.name = `Sphere_${objects.length + 1}`;
+            
+            scene.add(sphere);
+            objects.push(sphere);
+            selectObject(sphere);
+            updateObjectCount();
+            
+            showToast('✅ تم إضافة كرة');
+        }
+        
+        // ==================== 10. حذف كائن ====================
+        function deleteObject() {
+            if (!selectedObject) {
+                showToast('⚠️ اختر كائن أولاً', true);
+                return;
+            }
+            
+            scene.remove(selectedObject);
+            objects = objects.filter(obj => obj !== selectedObject);
+            transformControls.detach();
+            selectedObject = null;
+            
+            updateObjectCount();
+            document.getElementById('selectedName').textContent = 'لا يوجد';
+            showToast('🗑️ تم الحذف');
+        }
+        
+        // ==================== 11. نسخ كائن ====================
+        function duplicateObject() {
+            if (!selectedObject) {
+                showToast('⚠️ اختر كائن أولاً', true);
+                return;
+            }
+            
+            const newObj = selectedObject.clone();
+            newObj.position.x += 2;
+            newObj.userData.name = `${selectedObject.userData.name}_copy`;
+            
+            scene.add(newObj);
+            objects.push(newObj);
+            selectObject(newObj);
+            updateObjectCount();
+            
+            showToast('📋 تم النسخ');
+        }
+        
+        // ==================== 12. تركيز الكاميرا ====================
+        function focusOnSelected() {
+            if (!selectedObject) {
+                showToast('⚠️ اختر كائن أولاً', true);
+                return;
+            }
+            
+            const box = new THREE.Box3().setFromObject(selectedObject);
+            const center = box.getCenter(new THREE.Vector3());
+            
+            gsap.to(orbitControls.target, {
+                x: center.x, y: center.y, z: center.z,
+                duration: 0.5,
+                onUpdate: () => orbitControls.update()
+            });
+            
+            showToast('🔍 تم التركيز');
+        }
+        
+        // ==================== 13. تغيير الوضع ====================
+        function setMode(mode) {
+            currentMode = mode;
+            transformControls.setMode(mode);
+            showToast(`🎮 الوضع: ${mode === 'translate' ? 'تحريك' : mode === 'rotate' ? 'تدوير' : 'حجم'}`);
+        }
+        
+        // ==================== 14. تحديث عداد الكائنات ====================
+        function updateObjectCount() {
+            document.getElementById('objectCount').textContent = objects.length;
+        }
+        
+        // ==================== 15. رفع ملف للسحابة ====================
+        async function uploadToCloud() {
+            if (!selectedObject) {
+                showToast('⚠️ اختر كائن أولاً', true);
+                return;
+            }
+            
+            const input = document.getElementById('fileInput');
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const fileName = `${selectedObject.userData.name}/${file.name}`;
+                    const success = await cloudStorage.uploadFile(fileName, file);
+                    
+                    if (success) {
+                        if (!selectedObject.userData.cloudFiles) {
+                            selectedObject.userData.cloudFiles = [];
+                        }
+                        selectedObject.userData.cloudFiles.push(file.name);
+                    }
+                }
+                input.value = '';
+            };
+            input.click();
+        }
+        
+        // ==================== 16. تحميل ملف من السحابة ====================
+        async function downloadFromCloud() {
+            if (!selectedObject) {
+                showToast('⚠️ اختر كائن أولاً', true);
+                return;
+            }
+            
+            const files = await cloudStorage.listFiles();
+            const objectFiles = files.filter(f => f.Key.startsWith(selectedObject.userData.name));
+            
+            if (objectFiles.length === 0) {
+                showToast('📁 لا توجد ملفات في هذا الكائن', true);
+                return;
+            }
+            
+            let msg = '📁 اختر ملف:\n';
+            objectFiles.forEach((f, i) => {
+                msg += `${i+1}. ${f.Key.split('/').pop()}\n`;
+            });
+            
+            const choice = prompt(msg);
+            if (choice) {
+                const fileIndex = parseInt(choice) - 1;
+                if (fileIndex >= 0 && fileIndex < objectFiles.length) {
+                    const fileKey = objectFiles[fileIndex].Key;
+                    const blob = await cloudStorage.downloadFile(fileKey);
+                    
+                    if (blob) {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = fileKey.split('/').pop();
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    }
+                }
+            }
+        }
+        
+        // ==================== 17. عرض قائمة الملفات ====================
+        async function listCloudFiles() {
+            const files = await cloudStorage.listFiles();
+            
+            if (files.length === 0) {
+                alert('📁 السحابة فارغة');
+                return;
+            }
+            
+            let msg = `☁️ ملفات السحابة (${files.length}):\n\n`;
+            files.forEach(f => {
+                const sizeKB = (f.Size / 1024).toFixed(2);
+                msg += `📄 ${f.Key} (${sizeKB} KB)\n`;
+            });
+            
+            alert(msg);
+        }
+        
+        // ==================== 18. الأنيميشن ====================
+        function animate() {
+            requestAnimationFrame(animate);
+            orbitControls.update();
+            renderer.render(scene, camera);
+        }
+        
+        // ==================== 19. تغيير حجم النافذة ====================
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        // ==================== 20. اختصارات لوحة المفاتيح ====================
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            
+            const key = e.key.toLowerCase();
+            if (key === 'w') { e.preventDefault(); setMode('translate'); }
+            else if (key === 'e') { e.preventDefault(); setMode('rotate'); }
+            else if (key === 'r') { e.preventDefault(); setMode('scale'); }
+            else if (key === 'f') { e.preventDefault(); focusOnSelected(); }
+            else if (key === 'delete') { e.preventDefault(); deleteObject(); }
+            else if (e.ctrlKey && key === 'd') { e.preventDefault(); duplicateObject(); }
+        });
+        
+        // ==================== 21. تهيئة الأزرار ====================
+        function initUI() {
+            // أزرار الإضافة
+            document.getElementById('addCubeBtn').addEventListener('click', addCube);
+            document.getElementById('addSphereBtn').addEventListener('click', addSphere);
+            document.getElementById('mobileAddCube')?.addEventListener('click', addCube);
+            
+            // أزرار الوضع
+            document.querySelectorAll('[data-mode]').forEach(btn => {
+                btn.addEventListener('click', () => setMode(btn.dataset.mode));
+            });
+            
+            // أزرار العمليات
+            document.getElementById('deleteBtn').addEventListener('click', deleteObject);
+            document.getElementById('mobileDelete')?.addEventListener('click', deleteObject);
+            document.getElementById('duplicateBtn').addEventListener('click', duplicateObject);
+            document.getElementById('focusBtn').addEventListener('click', focusOnSelected);
+            
+            // أزرار السحابة
+            document.getElementById('uploadCloudBtn').addEventListener('click', uploadToCloud);
+            document.getElementById('mobileUpload')?.addEventListener('click', uploadToCloud);
+            document.getElementById('downloadCloudBtn').addEventListener('click', downloadFromCloud);
+            document.getElementById('mobileDownload')?.addEventListener('click', downloadFromCloud);
+            document.getElementById('listCloudBtn').addEventListener('click', listCloudFiles);
+        }
+        
+        // ==================== 22. بدء كل شيء ====================
+        window.onload = () => {
+            initScene();
+            initUI();
+            cloudStorage = new CloudStorage();
+            
+            // إضافة كائن افتراضي
+            setTimeout(addCube, 500);
+            
+            console.log('✅ ZeroOne Cloud Studio جاهز!');
+        };
+    </script>
+</body>
+</html>        * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
