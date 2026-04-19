@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+    <title>ZEROONE_KERNEL::CLOUD_AI_VAULT</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Three.js Core -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <!-- Transformers.js - ذكاء اصطناعي محلي مجاني -->
+    <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js"></script>
+    
+    <!-- AWS SDK for Cloudflare R2 (S3 Compatible) -->
+    <script src="https://cdn.jsdelivr.net/npm/@aws-sdk/client-s3@3.637.0/dist/aws-sdk-client-s3.min.js"></script>
+    
+    <style>
+        /* ==================== ZEROONE_KERNEL::STYLES ==================== */
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #0f172a;
+            --bg-tertiary: #1e293b;
+            --accent-primary: #00ffcc;
+            --accent-secondary: #ffaa00;
+            --accent-danger: #ff5555;
+            --accent-ai: #9945ff;
+            --text-primary: #e0e0e0;
+            --text-dim: #64748b;
+            --font-mono: 'Courier New', 'Fira Code', monospace;
+            --font-arabic: 'Cairo', sans-serif;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: var(--font-arabic);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow: hidden;
+            touch-action: pan-y pinch-zoom;
+        }
+        
+        .kernel-container {
+            display: flex;
+            flex-direction: column;
+            height: 100dvh;
+            max-height: 100dvh;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        /* Header */
+        .kernel-header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--accent-primary);
+            padding: 8px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        .kernel-title {
+            font-family: var(--font-mono);
+            color: var(--accent-primary);
+            font-size: 1rem;
+            font-weight: 700;
+            text-shadow: 0 0 10px var(--accent-primary);
+        }
+        
+        .cloud-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-dim);
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+        }
+        
+        .cloud-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--text-dim);
+            transition: all 0.3s;
+        }
+        
+        .cloud-status.online {
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+        }
+        
+        .cloud-status.syncing {
+            background: var(--accent-secondary);
+            box-shadow: 0 0 10px var(--accent-secondary);
+            animation: pulse-glow 1s infinite;
+        }
+        
+        /* Toolbar */
+        .kernel-toolbar {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid #1e293b;
+            padding: 8px 12px;
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            z-index: 99;
+        }
+        
+        .toolbar-group {
+            display: flex;
+            gap: 2px;
+            background: var(--bg-tertiary);
+            padding: 4px;
+            border-radius: 4px;
+        }
+        
+        .tool-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.15s;
+            touch-action: manipulation;
+        }
+        
+        .tool-btn:active {
+            background: var(--accent-primary);
+            color: var(--bg-primary);
+        }
+        
+        .tool-btn.ai {
+            color: var(--accent-ai);
+        }
+        
+        .tool-btn.ai:active {
+            background: var(--accent-ai);
+            color: white;
+        }
+        
+        /* Viewport */
+        #viewport {
+            flex: 1;
+            min-height: 0;
+            background: #050510;
+            position: relative;
+            touch-action: none;
+        }
+        
+        /* AI Analysis Panel */
+        .ai-panel {
+            position: absolute;
+            top: 120px;
+            left: 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--accent-ai);
+            border-radius: 8px;
+            padding: 12px 16px;
+            max-width: 280px;
+            backdrop-filter: blur(10px);
+            z-index: 500;
+            display: none;
+            box-shadow: 0 0 30px #9945ff33;
+        }
+        
+        .ai-panel.active {
+            display: block;
+        }
+        
+        .ai-title {
+            color: var(--accent-ai);
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .ai-result {
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        
+        .ai-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+        }
+        
+        .ai-tag {
+            background: var(--accent-ai);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-family: var(--font-mono);
+        }
+        
+        /* Voice Indicator */
+        #voice-indicator {
+            position: fixed;
+            top: 60px;
+            right: 20px;
+            background: var(--accent-danger);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            display: none;
+            z-index: 1000;
+            border: 1px solid #ff0000;
+            box-shadow: 0 0 20px #ff000055;
+            animation: pulse-glow 1.5s infinite;
+        }
+        
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 1; box-shadow: 0 0 20px #ff000055; }
+            50% { opacity: 0.8; box-shadow: 0 0 40px #ff0000aa; }
+        }
+        
+        /* Control Panel */
+        .control-panel {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--accent-primary);
+            padding: 12px 16px;
+            padding-bottom: max(12px, env(safe-area-inset-bottom));
+            transition: transform 0.2s ease;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .smart-input {
+            flex: 1;
+            background: var(--bg-primary);
+            border: 1px solid var(--accent-primary);
+            color: var(--accent-primary);
+            font-family: var(--font-mono);
+            padding: 14px 16px;
+            border-radius: 4px;
+            font-size: 16px;
+            caret-color: var(--accent-primary);
+        }
+        
+        .smart-input:focus {
+            outline: none;
+            border-color: var(--accent-secondary);
+            box-shadow: 0 0 15px #00ffcc33;
+        }
+        
+        .quick-toolbar {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        
+        .quick-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid #334155;
+            color: var(--accent-primary);
+            padding: 10px 16px;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            cursor: pointer;
+            flex: 1 0 auto;
+            transition: all 0.15s;
+            touch-action: manipulation;
+            text-transform: uppercase;
+        }
+        
+        .quick-btn:active {
+            background: var(--accent-primary);
+            color: var(--bg-primary);
+        }
+        
+        .quick-btn.highlight {
+            background: var(--accent-secondary);
+            color: var(--bg-primary);
+            border-color: var(--accent-secondary);
+        }
+        
+        .quick-btn.ai {
+            color: var(--accent-ai);
+            border-color: var(--accent-ai);
+        }
+        
+        .quick-btn.ai:active {
+            background: var(--accent-ai);
+            color: white;
+        }
+        
+        /* Status Bar */
+        .status-bar {
+            background: var(--bg-primary);
+            padding: 6px 16px;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            display: flex;
+            justify-content: space-between;
+            border-top: 1px solid #1e293b;
+            z-index: 100;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .status-value {
+            color: var(--accent-primary);
+            font-weight: 700;
+        }
+        
+        /* Console Log */
+        #console-log {
+            position: fixed;
+            bottom: 160px;
+            left: 16px;
+            max-width: 300px;
+            background: #0a0a0fe0;
+            color: var(--accent-primary);
+            padding: 8px 12px;
+            border-radius: 4px;
+            border-left: 4px solid var(--accent-primary);
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            opacity: 0.9;
+            pointer-events: none;
+        }
+        
+        /* Help Modal */
+        .help-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--bg-secondary);
+            border: 1px solid var(--accent-primary);
+            border-radius: 8px;
+            padding: 20px;
+            max-width: 350px;
+            width: 90%;
+            z-index: 2000;
+            display: none;
+            box-shadow: 0 0 40px #000000aa;
+        }
+        
+        .help-modal.active {
+            display: block;
+        }
+        
+        .help-title {
+            color: var(--accent-primary);
+            font-family: var(--font-mono);
+            margin-bottom: 15px;
+        }
+        
+        .help-content {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            line-height: 1.8;
+            color: var(--text-primary);
+        }
+        
+        .help-content kbd {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--accent-primary);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #000000aa;
+            z-index: 1500;
+            display: none;
+        }
+        
+        .overlay.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="kernel-container">
+        
+        <!-- Header with Cloud Status -->
+        <header class="kernel-header">
+            <div class="kernel-title">> ZEROONE_KERNEL::CLOUD_AI_VAULT</div>
+            <div class="cloud-indicator">
+                <span id="cloud-status-text">CLOUD:OFFLINE</span>
+                <span class="cloud-status" id="cloud-status-dot"></span>
+                <button class="kernel-btn" id="voice-toggle">🎤 VOX</button>
+                <button class="kernel-btn" id="help-btn">? HELP</button>
+            </div>
+        </header>
+        
+        <!-- Toolbar -->
+        <div class="kernel-toolbar">
+            <div class="toolbar-group">
+                <button class="tool-btn" data-primitive="box">📦 BOX</button>
+                <button class="tool-btn" data-primitive="sphere">⚪ SPHERE</button>
+                <button class="tool-btn" data-primitive="cylinder">🥫 CYL</button>
+                <button class="tool-btn" data-primitive="cone">🔺 CONE</button>
+                <button class="tool-btn" data-primitive="torus">🍩 TORUS</button>
+            </div>
+            <div class="toolbar-group">
+                <button class="tool-btn" data-color="red">🔴</button>
+                <button class="tool-btn" data-color="green">🟢</button>
+                <button class="tool-btn" data-color="blue">🔵</button>
+                <button class="tool-btn" data-color="yellow">🟡</button>
+                <button class="tool-btn" data-color="purple">🟣</button>
+            </div>
+            <div class="toolbar-group">
+                <button class="tool-btn ai" id="ai-analyze-btn">🤖 ANALYZE</button>
+                <button class="tool-btn danger" id="delete-btn">🗑️ DEL</button>
+            </div>
+        </div>
+        
+        <!-- 3D Viewport -->
+        <div id="viewport"></div>
+        
+        <!-- AI Analysis Panel -->
+        <div class="ai-panel" id="aiPanel">
+            <div class="ai-title">
+                <span>🤖 AI_ANALYSIS</span>
+                <span id="ai-model-badge" style="color: var(--text-dim);">local</span>
+            </div>
+            <div class="ai-result" id="aiResult">Select a file to analyze...</div>
+            <div class="ai-tags" id="aiTags"></div>
+        </div>
+        
+        <!-- Voice Indicator -->
+        <div id="voice-indicator">🎤 LISTENING...</div>
+        
+        <!-- Console Log -->
+        <div id="console-log">> SYSTEM_READY</div>
+        
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-item">
+                <span>SELECTED:</span>
+                <span class="status-value" id="selected-uuid">0xNULL</span>
+            </div>
+            <div class="status-item">
+                <span>VAULT:</span>
+                <span class="status-value" id="vault-count">0x0</span>
+            </div>
+            <div class="status-item">
+                <span>BLOB:</span>
+                <span class="status-value" id="blob-size">0x0</span>
+            </div>
+            <div class="status-item">
+                <span>MODE:</span>
+                <span class="status-value" id="mode-status">IDLE</span>
+            </div>
+        </div>
+        
+        <!-- Control Panel -->
+        <div class="control-panel" id="controlPanel">
+            <div class="input-group">
+                <input type="text" id="mainInput" class="smart-input" placeholder="> OBJ_IDENTIFIER" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                <button class="kernel-btn" id="set-label-btn" style="padding: 14px 20px;">SET</button>
+            </div>
+            
+            <div class="quick-toolbar">
+                <button class="quick-btn" data-char="0x">0x</button>
+                <button class="quick-btn" data-char="A">A</button>
+                <button class="quick-btn" data-char="F">F</button>
+                <button class="quick-btn" data-action="clear">⌫ CLR</button>
+                <button class="quick-btn highlight" data-action="inject">⬆️ INJECT</button>
+                <button class="quick-btn highlight" data-action="extract">⬇️ EXTRACT</button>
+                <button class="quick-btn ai" data-action="sync-cloud">☁️ SYNC</button>
+            </div>
+        </div>
+        
+        <!-- Help Modal -->
+        <div class="help-modal" id="helpModal">
+            <div class="help-title">> HELP::COMMANDS</div>
+            <div class="help-content">
+                <p><kbd>B/S/C/T</kbd> - Create Primitives</p>
+                <p><kbd>R/G/B/Y/P</kbd> - Set Color</p>
+                <p><kbd>DELETE</kbd> - Delete Object</p>
+                <p><kbd>SPACE</kbd> - Voice Toggle</p>
+                <p><kbd>H/?</kbd> - This Help</p>
+                <br>
+                <p>🤖 AI: Analyze files locally (free)</p>
+                <p>☁️ CLOUD: Sync to Cloudflare R2</p>
+                <br>
+                <p>🎤 AR Voice: "اعمل مكعب" "لون أحمر" "احذف" "حلل الملف"</p>
+            </div>
+            <button class="kernel-btn" id="closeHelpBtn" style="margin-top: 20px; width: 100%;">CLOSE</button>
+        </div>
+        <div class="overlay" id="overlay"></div>
+        
+    </div>
+    
+    <input type="file" id="file-input" style="display: none;">
+    
+    <script>
+        // ==================== ZEROONE_KERNEL::CLOUD_AI_CORE ====================
+        (function() {
+            "use strict";
+            
+            // ---------- CONFIG ----------
+            const CONFIG = {
+                // Cloudflare R2 Configuration (يجب على المستخدم إدخال بياناته)
+                R2_ACCOUNT_ID: '', // أدخل Account ID من Cloudflare Dashboard
+                R2_ACCESS_KEY_ID: '', // أدخل Access Key ID
+                R2_SECRET_ACCESS_KEY: '', // أدخل Secret Access Key
+                R2_BUCKET_NAME: 'zeroone-vault',
+                R2_ENDPOINT: '', // https://{account_id}.r2.cloudflarestorage.com
+                
+                // Encryption
+                XOR_KEY: 0x5A
+            };
+            
+            // ---------- UTILS ----------
+            const LOG = (msg) => {
+                const el = document.getElementById('console-log');
+                if (el) el.innerHTML = `> ${msg}`;
+                console.log(`[ZEROONE] ${msg}`);
+            };
+            
+            const HEX = (num) => `0x${num.toString(16).toUpperCase()}`;
+            
+            // تحديث حالة السحابة
+            const setCloudStatus = (status) => {
+                const dot = document.getElementById('cloud-status-dot');
+                const text = document.getElementById('cloud-status-text');
+                dot.className = 'cloud-status';
+                if (status === 'online') {
+                    dot.classList.add('online');
+                    text.textContent = 'CLOUD:ONLINE';
+                } else if (status === 'syncing') {
+                    dot.classList.add('syncing');
+                    text.textContent = 'CLOUD:SYNCING';
+                } else {
+                    text.textContent = 'CLOUD:OFFLINE';
+                }
+            };
+            
+            // ---------- AI ENGINE (Transformers.js - مجاني ومحلي) ----------
+            class LocalAIEngine {
+                constructor() {
+                    this.pipeline = null;
+                    this.isReady = false;
+                    this.init();
+                }
+                
+                async init() {
+                    try {
+                        LOG('AI:LOADING_MODEL...');
+                        // استخدام نموذج تصنيف النصوص مجاني من Hugging Face
+                        this.pipeline = await transformers.pipeline('zero-shot-classification', 'Xenova/distilbert-base-uncased-mnli');
+                        this.isReady = true;
+                        LOG('AI:MODEL_READY (Local & Free)');
+                    } catch (e) {
+                        LOG('AI:MODEL_FAILED - Using fallback');
+                        this.isReady = false;
+                    }
+                }
+                
+                async analyzeFile(file) {
+                    const fileName = file.name.toLowerCase();
+                    const fileSize = file.size;
+                    const fileType = file.type;
+                    
+                    // تحليل أساسي بدون نموذج (سريع)
+                    let analysis = {
+                        type: 'unknown',
+                        tags: [],
+                        confidence: 0
+                    };
+                    
+                    // تحليل حسب الامتداد
+                    if (fileName.match(/\.(jpg|jpeg|png|gif|webp)$/)) {
+                        analysis.type = 'image';
+                        analysis.tags = ['image', 'visual', 'media'];
+                    } else if (fileName.match(/\.(pdf)$/)) {
+                        analysis.type = 'document';
+                        analysis.tags = ['pdf', 'document', 'official'];
+                    } else if (fileName.match(/\.(doc|docx|txt|md)$/)) {
+                        analysis.type = 'text';
+                        analysis.tags = ['text', 'document', 'notes'];
+                    } else if (fileName.match(/\.(mp4|mov|avi|webm)$/)) {
+                        analysis.type = 'video';
+                        analysis.tags = ['video', 'media', 'large'];
+                    } else if (fileName.match(/\.(mp3|wav|ogg)$/)) {
+                        analysis.type = 'audio';
+                        analysis.tags = ['audio', 'media', 'sound'];
+                    } else if (fileName.match(/\.(zip|rar|7z|tar|gz)$/)) {
+                        analysis.type = 'archive';
+                        analysis.tags = ['archive', 'compressed', 'bundle'];
+                    }
+                    
+                    // إضافة تصنيفات إضافية حسب الحجم
+                    if (fileSize > 10 * 1024 * 1024) {
+                        analysis.tags.push('large_file');
+                    } else if (fileSize < 100 * 1024) {
+                        analysis.tags.push('small_file');
+                    }
+                    
+                    // لو النموذج جاهز، نستخدمه لتحليل اسم الملف
+                    if (this.isReady && this.pipeline) {
+                        try {
+                            const candidateLabels = ['confidential', 'public', 'work', 'personal', 'important', 'temporary'];
+                            const result = await this.pipeline(fileName, candidateLabels);
+                            if (result.scores[0] > 0.5) {
+                                analysis.tags.push(result.labels[0]);
+                                analysis.confidence = result.scores[0];
+                            }
+                        } catch (e) {
+                            console.warn('AI classification failed, using fallback');
+                        }
+                    }
+                    
+                    return analysis;
+                }
+                
+                async analyzeText(text) {
+                    if (!this.isReady || !this.pipeline) {
+                        return { labels: [], scores: [] };
+                    }
+                    
+                    try {
+                        const candidateLabels = ['confidential', 'public', 'work', 'personal', 'urgent', 'archive'];
+                        const result = await this.pipeline(text, candidateLabels);
+                        return result;
+                    } catch (e) {
+                        return { labels: [], scores: [] };
+                    }
+                }
+            }
+            
+            // ---------- CLOUD STORAGE (Cloudflare R2) ----------
+            class CloudStorage {
+                constructor() {
+                    this.s3Client = null;
+                    this.isConfigured = false;
+                    this.init();
+                }
+                
+                init() {
+                    // التحقق من وجود credentials
+                    if (CONFIG.R2_ACCOUNT_ID && CONFIG.R2_ACCESS_KEY_ID && CONFIG.R2_SECRET_ACCESS_KEY) {
+                        try {
+                            const { S3Client } = window;
+                            this.s3Client = new S3Client({
+                                region: 'auto',
+                                endpoint: CONFIG.R2_ENDPOINT || `https://${CONFIG.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+                                credentials: {
+                                    accessKeyId: CONFIG.R2_ACCESS_KEY_ID,
+                                    secretAccessKey: CONFIG.R2_SECRET_ACCESS_KEY
+                                }
+                            });
+                            this.isConfigured = true;
+                            setCloudStatus('online');
+                            LOG('CLOUD:R2_CONNECTED');
+                        } catch (e) {
+                            LOG('CLOUD:R2_CONFIG_ERROR');
+                            this.isConfigured = false;
+                        }
+                    } else {
+                        LOG('CLOUD:NEEDS_CONFIG - Enter R2 credentials in CONFIG');
+                        setCloudStatus('offline');
+                    }
+                }
+                
+                async uploadBlob(uuid, blob) {
+                    if (!this.isConfigured) {
+                        LOG('CLOUD:NOT_CONFIGURED');
+                        return false;
+                    }
+                    
+                    setCloudStatus('syncing');
+                    
+                    try {
+                        const { PutObjectCommand } = window;
+                        const command = new PutObjectCommand({
+                            Bucket: CONFIG.R2_BUCKET_NAME,
+                            Key: `${uuid}.enc`,
+                            Body: blob,
+                            ContentType: 'application/octet-stream',
+                            Metadata: {
+                                uuid: uuid,
+                                uploaded: new Date().toISOString()
+                            }
+                        });
+                        
+                        await this.s3Client.send(command);
+                        setCloudStatus('online');
+                        LOG(`CLOUD:UPLOADED ${HEX(blob.size)} bytes -> ${uuid.slice(0,8)}`);
+                        return true;
+                    } catch (e) {
+                        setCloudStatus('online');
+                        LOG(`CLOUD:UPLOAD_FAILED - ${e.message}`);
+                        return false;
+                    }
+                }
+                
+                async downloadBlob(uuid) {
+                    if (!this.isConfigured) {
+                        LOG('CLOUD:NOT_CONFIGURED');
+                        return null;
+                    }
+                    
+                    setCloudStatus('syncing');
+                    
+                    try {
+                        const { GetObjectCommand } = window;
+                        const command = new GetObjectCommand({
+                            Bucket: CONFIG.R2_BUCKET_NAME,
+                            Key: `${uuid}.enc`
+                        });
+                        
+                        const response = await this.s3Client.send(command);
+                        const blob = await response.Body.transformToByteArray();
+                        setCloudStatus('online');
+                        LOG(`CLOUD:DOWNLOADED ${HEX(blob.length)} bytes`);
+                        return new Blob([blob]);
+                    } catch (e) {
+                        setCloudStatus('online');
+                        if (e.name === 'NoSuchKey') {
+                            LOG(`CLOUD:FILE_NOT_FOUND - ${uuid.slice(0,8)}`);
+                        } else {
+                            LOG(`CLOUD:DOWNLOAD_FAILED - ${e.message}`);
+                        }
+                        return null;
+                    }
+                }
+                
+                async deleteBlob(uuid) {
+                    if (!this.isConfigured) return false;
+                    
+                    try {
+                        const { DeleteObjectCommand } = window;
+                        const command = new DeleteObjectCommand({
+                            Bucket: CONFIG.R2_BUCKET_NAME,
+                            Key: `${uuid}.enc`
+                        });
+                        await this.s3Client.send(command);
+                        LOG(`CLOUD:DELETED ${uuid.slice(0,8)}`);
+                        return true;
+                    } catch (e) {
+                        return false;
+                    }
+                }
+            }
+            
+            // ---------- BINARY_VAULT_DB (IndexedDB + XOR Encryption) ----------
+            class BinaryVaultDB {
+                constructor() {
+                    this.db = null;
+                    this.key = CONFIG.XOR_KEY;
+                    this.init();
+                }
+                
+                async init() {
+                    return new Promise((resolve) => {
+                        const request = indexedDB.open('ZeroOneVault', 1);
+                        request.onupgradeneeded = (e) => {
+                            const db = e.target.result;
+                            if (!db.objectStoreNames.contains('blobs')) {
+                                db.createObjectStore('blobs', { keyPath: 'uuid' });
+                            }
+                        };
+                        request.onsuccess = (e) => {
+                            this.db = e.target.result;
+                            this.updateCount();
+                            resolve();
+                        };
+                        request.onerror = () => resolve();
+                    });
+                }
+                
+                xorCrypt(buffer) {
+                    const bytes = new Uint8Array(buffer);
+                    for (let i = 0; i < bytes.length; i++) bytes[i] ^= this.key;
+                    return bytes;
+                }
+                
+                async storeBlob(uuid, file) {
+                    const buffer = await file.arrayBuffer();
+                    const encrypted = this.xorCrypt(buffer);
+                    const blob = new Blob([encrypted], { type: 'application/octet-stream' });
+                    
+                    return new Promise((resolve) => {
+                        const tx = this.db.transaction(['blobs'], 'readwrite');
+                        const store = tx.objectStore('blobs');
+                        const request = store.put({ uuid, data: blob });
+                        request.onsuccess = () => { this.updateCount(); resolve(blob); };
+                        request.onerror = () => resolve(null);
+                    });
+                }
+                
+                async getBlob(uuid) {
+                    return new Promise((resolve) => {
+                        const tx = this.db.transaction(['blobs'], 'readonly');
+                        const store = tx.objectStore('blobs');
+                        const request = store.get(uuid);
+                        request.onsuccess = async () => {
+                            const result = request.result;
+                            if (!result) { resolve(null); return; }
+                            const buffer = await result.data.arrayBuffer();
+                            const decrypted = this.xorCrypt(buffer);
+                            resolve(new Blob([decrypted]));
+                        };
+                        request.onerror = () => resolve(null);
+                    });
+                }
+                
+                async deleteBlob(uuid) {
+                    return new Promise((resolve) => {
+                        const tx = this.db.transaction(['blobs'], 'readwrite');
+                        const store = tx.objectStore('blobs');
+                        const request = store.delete(uuid);
+                        request.onsuccess = () => { this.updateCount(); resolve(); };
+                        request.onerror = () => resolve();
+                    });
+                }
+                
+                async getAllKeys() {
+                    return new Promise((resolve) => {
+                        const tx = this.db.transaction(['blobs'], 'readonly');
+                        const store = tx.objectStore('blobs');
+                        const request = store.getAllKeys();
+                        request.onsuccess = () => resolve(request.result);
+                        request.onerror = () => resolve([]);
+                    });
+                }
+                
+                async updateCount() {
+                    const keys = await this.getAllKeys();
+                    document.getElementById('vault-count').textContent = HEX(keys.length);
+                }
+            }
+            
+            // ---------- SCENE_3D_MANAGER (مختصر) ----------
+            class Scene3DManager {
+                constructor(containerId) {
+                    this.container = document.getElementById(containerId);
+                    this.scene = new THREE.Scene();
+                    this.scene.background = new THREE.Color(0x050510);
+                    
+                    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+                    this.camera.position.set(5, 5, 10);
+                    
+                    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+                    this.renderer.setSize(window.innerWidth, window.innerHeight);
+                    this.renderer.shadowMap.enabled = true;
+                    this.container.appendChild(this.renderer.domElement);
+                    
+                    this.objects = [];
+                    this.selectedObject = null;
+                    this.objectMeta = new Map();
+                    
+                    this.setupLights();
+                    this.setupControls();
+                    this.setupRaycaster();
+                    this.animate();
+                    
+                    window.addEventListener('resize', () => this.onResize());
+                }
+                
+                setupLights() {
+                    const ambient = new THREE.AmbientLight(0x404060);
+                    this.scene.add(ambient);
+                    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+                    dirLight.position.set(5, 10, 7);
+                    this.scene.add(dirLight);
+                    const gridHelper = new THREE.GridHelper(20, 20, 0x00ffcc, 0x1e293b);
+                    this.scene.add(gridHelper);
+                }
+                
+                setupControls() {
+                    if (typeof THREE.OrbitControls !== 'undefined') {
+                        this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+                        this.controls.enableDamping = true;
+                        this.controls.target.set(0, 0.5, 0);
+                    }
+                }
+                
+                setupRaycaster() {
+                    this.raycaster = new THREE.Raycaster();
+                    this.mouse = new THREE.Vector2();
+                    
+                    this.renderer.domElement.addEventListener('click', (e) => {
+                        const rect = this.renderer.domElement.getBoundingClientRect();
+                        this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                        this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+                        
+                        this.raycaster.setFromCamera(this.mouse, this.camera);
+                        const intersects = this.raycaster.intersectObjects(this.objects);
+                        
+                        if (intersects.length > 0) {
+                            this.selectObject(intersects[0].object);
+                        }
+                    });
+                }
+                
+                selectObject(obj) {
+                    if (this.selectedObject) {
+                        const prevMeta = this.objectMeta.get(this.selectedObject.uuid);
+                        if (prevMeta) this.selectedObject.material.color.setHex(prevMeta.color);
+                    }
+                    
+                    this.selectedObject = obj;
+                    const meta = this.objectMeta.get(obj.uuid);
+                    obj.material.color.setHex(0xffaa00);
+                    
+                    document.getElementById('selected-uuid').textContent = obj.uuid.slice(0, 8);
+                    document.getElementById('mainInput').value = meta?.label || 'VAULT_00';
+                    
+                    window.dispatchEvent(new CustomEvent('objectSelected', { detail: { uuid: obj.uuid } }));
+                }
+                
+                addPrimitive(type) {
+                    let geometry;
+                    switch(type) {
+                        case 'box': geometry = new THREE.BoxGeometry(1, 1, 1); break;
+                        case 'sphere': geometry = new THREE.SphereGeometry(0.7, 32, 16); break;
+                        case 'cylinder': geometry = new THREE.CylinderGeometry(0.6, 0.6, 1.2, 16); break;
+                        case 'cone': geometry = new THREE.ConeGeometry(0.7, 1.2, 16); break;
+                        case 'torus': geometry = new THREE.TorusGeometry(0.7, 0.2, 16, 32); break;
+                        default: return null;
+                    }
+                    
+                    const material = new THREE.MeshStandardMaterial({ color: 0x00ffcc, roughness: 0.3 });
+                    const mesh = new THREE.Mesh(geometry, material);
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                    mesh.position.x = (this.objects.length % 3) * 2.5 - 2.5;
+                    mesh.position.z = Math.floor(this.objects.length / 3) * 2.5 - 2.5;
+                    mesh.position.y = 0.5;
+                    
+                    this.scene.add(mesh);
+                    this.objects.push(mesh);
+                    
+                    this.objectMeta.set(mesh.uuid, { label: `OBJ_${this.objects.length}`, color: 0x00ffcc });
+                    this.selectObject(mesh);
+                    
+                    return mesh;
+                }
+                
+                setLabel(label) {
+                    if (!this.selectedObject) return;
+                    const meta = this.objectMeta.get(this.selectedObject.uuid);
+                    meta.label = label;
+                    this.objectMeta.set(this.selectedObject.uuid, meta);
+                }
+                
+                setColor(hex) {
+                    if (!this.selectedObject) return;
+                    this.selectedObject.material.color.setHex(hex);
+                    const meta = this.objectMeta.get(this.selectedObject.uuid);
+                    meta.color = hex;
+                }
+                
+                deleteSelected() {
+                    if (!this.selectedObject) return null;
+                    const uuid = this.selectedObject.uuid;
+                    
+                    this.scene.remove(this.selectedObject);
+                    this.objects = this.objects.filter(o => o !== this.selectedObject);
+                    this.objectMeta.delete(uuid);
+                    
+                    this.selectedObject = this.objects.length > 0 ? this.objects[0] : null;
+                    if (this.selectedObject) {
+                        this.selectObject(this.selectedObject);
+                    } else {
+                        document.getElementById('selected-uuid').textContent = '0xNULL';
+                    }
+                    
+                    return uuid;
+                }
+                
+                animate() {
+                    requestAnimationFrame(() => this.animate());
+                    if (this.controls) this.controls.update();
+                    this.renderer.render(this.scene, this.camera);
+                }
+                
+                onResize() {
+                    this.camera.aspect = window.innerWidth / window.innerHeight;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(window.innerWidth, window.innerHeight);
+                }
+            }
+            
+            // ---------- VOICE_CONTROLLER ----------
+            class VoiceController {
+                constructor() {
+                    this.active = false;
+                    this.init();
+                }
+                
+                init() {
+                    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    if (!SR) return;
+                    
+                    this.recognition = new SR();
+                    this.recognition.lang = 'ar-SA';
+                    this.recognition.continuous = true;
+                    
+                    this.recognition.onresult = (e) => {
+                        const cmd = e.results[e.results.length-1][0].transcript.toLowerCase();
+                        LOG(`VOICE: ${cmd}`);
+                        
+                        if (cmd.includes('مكعب')) window.dispatchEvent(new CustomEvent('voiceCommand', { detail: { action: 'addPrimitive', type: 'box' } }));
+                        else if (cmd.includes('كرة')) window.dispatchEvent(new CustomEvent('voiceCommand', { detail: { action: 'addPrimitive', type: 'sphere' } }));
+                        else if (cmd.includes('لون أحمر')) window.dispatchEvent(new CustomEvent('voiceCommand', { detail: { action: 'setColor', color: 0xff0000 } }));
+                        else if (cmd.includes('احذف')) window.dispatchEvent(new CustomEvent('voiceCommand', { detail: { action: 'delete' } }));
+                        else if (cmd.includes('حلل')) window.dispatchEvent(new CustomEvent('voiceCommand', { detail: { action: 'analyze' } }));
+                    };
+                    
+                    this.recognition.onend = () => { if (this.active) this.recognition.start(); };
+                }
+                
+                toggle() {
+                    if (!this.recognition) return;
+                    
+                    if (this.active) {
+                        this.recognition.stop();
+                        this.active = false;
+                        document.getElementById('voice-indicator').style.display = 'none';
+                        document.getElementById('mode-status').textContent = 'IDLE';
+                    } else {
+                        this.recognition.start();
+                        this.active = true;
+                        document.getElementById('voice-indicator').style.display = 'block';
+                        document.getElementById('mode-status').textContent = 'LISTENING';
+                    }
+                }
+            }
+            
+            // ---------- BOOT SEQUENCE ----------
+            (async () => {
+                // Initialize DB
+                const db = new BinaryVaultDB();
+                await db.init();
+                
+                // Initialize AI
+                const ai = new LocalAIEngine();
+                
+                // Initialize Cloud
+                const cloud = new CloudStorage();
+                
+                // Initialize 3D Scene
+                const scene = new Scene3DManager('viewport');
+                
+                // Initialize Voice
+                const voice = new VoiceController();
+                
+                // UI Elements
+                const mainInput = document.getElementById('mainInput');
+                const fileInput = document.getElementById('file-input');
+                const helpModal = document.getElementById('helpModal');
+                const overlay = document.getElementById('overlay');
+                const aiPanel = document.getElementById('aiPanel');
+                const aiResult = document.getElementById('aiResult');
+                const aiTags = document.getElementById('aiTags');
+                
+                // Update blob size on selection
+                window.addEventListener('objectSelected', async (e) => {
+                    const blob = await db.getBlob(e.detail.uuid);
+                    const size = blob ? blob.size : 0;
+                    document.getElementById('blob-size').textContent = HEX(size);
+                });
+                
+                // UI Bindings
+                document.getElementById('voice-toggle').addEventListener('click', () => voice.toggle());
+                document.getElementById('help-btn').addEventListener('click', () => {
+                    helpModal.classList.add('active');
+                    overlay.classList.add('active');
+                });
+                document.getElementById('closeHelpBtn').addEventListener('click', () => {
+                    helpModal.classList.remove('active');
+                    overlay.classList.remove('active');
+                });
+                overlay.addEventListener('click', () => {
+                    helpModal.classList.remove('active');
+                    overlay.classList.remove('active');
+                });
+                
+                // AI Analyze Button
+                document.getElementById('ai-analyze-btn').addEventListener('click', async () => {
+                    aiPanel.classList.add('active');
+                    aiResult.textContent = 'Analyzing...';
+                    aiTags.innerHTML = '';
+                    
+                    // تحليل الكائن المحدد
+                    if (scene.selectedObject) {
+                        const meta = scene.objectMeta.get(scene.selectedObject.uuid);
+                        const analysis = await ai.analyzeText(meta?.label || 'unknown');
+                        
+                        let resultText = `Object: ${meta?.label || 'Unnamed'}\n`;
+                        resultText += `UUID: ${scene.selectedObject.uuid.slice(0, 8)}\n`;
+                        
+                        aiResult.textContent = resultText;
+                        
+                        if (analysis.labels) {
+                            analysis.labels.forEach((label, i) => {
+                                if (analysis.scores[i] > 0.3) {
+                                    const tag = document.createElement('span');
+                                    tag.className = 'ai-tag';
+                                    tag.textContent = `${label} (${Math.round(analysis.scores[i]*100)}%)`;
+                                    aiTags.appendChild(tag);
+                                }
+                            });
+                        }
+                    } else {
+                        aiResult.textContent = 'No object selected';
+                    }
+                });
+                
+                // Toolbar
+                document.querySelectorAll('[data-primitive]').forEach(btn => {
+                    btn.addEventListener('click', () => scene.addPrimitive(btn.dataset.primitive));
+                });
+                
+                document.querySelectorAll('[data-color]').forEach(btn => {
+                    const colors = { red: 0xff5555, green: 0x55ff55, blue: 0x5555ff, yellow: 0xffff55, purple: 0xff55ff };
+                    btn.addEventListener('click', () => scene.setColor(colors[btn.dataset.color]));
+                });
+                
+                document.getElementById('delete-btn').addEventListener('click', async () => {
+                    const uuid = scene.deleteSelected();
+                    if (uuid) {
+                        await db.deleteBlob(uuid);
+                        await cloud.deleteBlob(uuid);
+                    }
+                });
+                
+                document.getElementById('set-label-btn').addEventListener('click', () => {
+                    scene.setLabel(mainInput.value);
+                });
+                
+                // Quick Toolbar
+                document.querySelectorAll('[data-char]').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const char = btn.dataset.char;
+                        const start = mainInput.selectionStart;
+                        const text = mainInput.value;
+                        mainInput.value = text.substring(0, start) + char + text.substring(start);
+                        mainInput.focus();
+                    });
+                });
+                
+                document.querySelector('[data-action="clear"]').addEventListener('click', () => {
+                    mainInput.value = '';
+                    mainInput.focus();
+                });
+                
+                // Inject with AI Analysis
+                document.querySelector('[data-action="inject"]').addEventListener('click', () => {
+                    if (!scene.selectedObject) { LOG('ERROR: NO_OBJECT'); return; }
+                    fileInput.click();
+                });
+                
+                fileInput.addEventListener('change', async (e) => {
+                    if (e.target.files[0] && scene.selectedObject) {
+                        const file = e.target.files[0];
+                        
+                        // AI Analysis
+                        aiPanel.classList.add('active');
+                        aiResult.textContent = `Analyzing ${file.name}...`;
+                        
+                        const analysis = await ai.analyzeFile(file);
+                        aiResult.textContent = `${file.name}\nType: ${analysis.type}\nSize: ${HEX(file.size)}`;
+                        aiTags.innerHTML = '';
+                        analysis.tags.forEach(tag => {
+                            const span = document.createElement('span');
+                            span.className = 'ai-tag';
+                            span.textContent = tag;
+                            aiTags.appendChild(span);
+                        });
+                        
+                        // Store locally
+                        const encryptedBlob = await db.storeBlob(scene.selectedObject.uuid, file);
+                        document.getElementById('blob-size').textContent = HEX(encryptedBlob.size);
+                        
+                        // Upload to Cloud
+                        await cloud.uploadBlob(scene.selectedObject.uuid, encryptedBlob);
+                        
+                        LOG(`INJECTED+ANALYZED: ${file.name}`);
+                        fileInput.value = '';
+                    }
+                });
+                
+                // Extract (from local first, then cloud)
+                document.querySelector('[data-action="extract"]').addEventListener('click', async () => {
+                    if (!scene.selectedObject) { LOG('ERROR: NO_OBJECT'); return; }
+                    
+                    let blob = await db.getBlob(scene.selectedObject.uuid);
+                    
+                    // If not found locally, try cloud
+                    if (!blob) {
+                        LOG('LOCAL:NOT_FOUND - Trying Cloud...');
+                        blob = await cloud.downloadBlob(scene.selectedObject.uuid);
+                        if (blob) {
+                            // Cache locally
+                            const decrypted = await db.xorCrypt(await blob.arrayBuffer());
+                            await db.storeBlob(scene.selectedObject.uuid, new Blob([decrypted]));
+                        }
+                    }
+                    
+                    if (!blob) { LOG('ERROR: NO_BLOB'); return; }
+                    
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `extracted_${Date.now()}.bin`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    
+                    LOG(`EXTRACTED: ${blob.size} bytes`);
+                });
+                
+                // Sync with Cloud
+                document.querySelector('[data-action="sync-cloud"]').addEventListener('click', async () => {
+                    if (!scene.selectedObject) { LOG('ERROR: NO_OBJECT'); return; }
+                    
+                    const blob = await db.getBlob(scene.selectedObject.uuid);
+                    if (!blob) { LOG('ERROR: NO_LOCAL_BLOB'); return; }
+                    
+                    // Re-encrypt for upload
+                    const buffer = await blob.arrayBuffer();
+                    const encrypted = db.xorCrypt(buffer);
+                    const encryptedBlob = new Blob([encrypted]);
+                    
+                    const success = await cloud.uploadBlob(scene.selectedObject.uuid, encryptedBlob);
+                    if (success) {
+                        LOG('SYNC:UPLOAD_SUCCESS');
+                    }
+                });
+                
+                // Voice Commands
+                window.addEventListener('voiceCommand', (e) => {
+                    const { action, type, color } = e.detail;
+                    if (action === 'addPrimitive') scene.addPrimitive(type);
+                    else if (action === 'setColor') scene.setColor(color);
+                    else if (action === 'delete') {
+                        const uuid = scene.deleteSelected();
+                        if (uuid) { db.deleteBlob(uuid); cloud.deleteBlob(uuid); }
+                    }
+                    else if (action === 'analyze') document.getElementById('ai-analyze-btn').click();
+                });
+                
+                // Keyboard
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Delete') { e.preventDefault(); document.getElementById('delete-btn').click(); }
+                    else if (e.key === ' ') { e.preventDefault(); voice.toggle(); }
+                    else if (e.key === 'h' || e.key === 'H') { document.getElementById('help-btn').click(); }
+                    else if (e.key === 'b') scene.addPrimitive('box');
+                    else if (e.key === 's') scene.addPrimitive('sphere');
+                    else if (e.key === 'c') scene.addPrimitive('cylinder');
+                    else if (e.key === 't') scene.addPrimitive('torus');
+                    else if (e.key === 'a') document.getElementById('ai-analyze-btn').click();
+                });
+                
+                // Mobile Keyboard
+                if (window.visualViewport) {
+                    const panel = document.getElementById('controlPanel');
+                    window.visualViewport.addEventListener('resize', () => {
+                        const keyboardHeight = window.innerHeight - window.visualViewport.height;
+                        panel.style.transform = keyboardHeight > 100 ? `translateY(-${keyboardHeight - 60}px)` : 'translateY(0)';
+                    });
+                }
+                
+                LOG('KERNEL_BOOTED::CLOUD+AI_READY');
+            })();
+            
+        })();
+    </script>
+</body>
+</html>
